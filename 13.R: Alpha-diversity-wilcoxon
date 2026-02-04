@@ -1,0 +1,72 @@
+Prepare data for all alpha-diversity like below:
+SampleID      chao1         Evenness      Shannon         Simpson
+Ina-103-A     113.1428571   0.686959412	4.685186132	    19.10819078
+Ina-103-B	  168.25	       0.69883524	   5.135550206	    15.07581024
+Ina-105-A	  171	          0.696983052	5.170117482	    18.72729342
+Ina-105-B	  177.0909091	 0.682710346	5.098211568	    21.2420661
+
+
+
+library(tidyverse)
+library(ggpubr)
+alpha_div <- read.delim("~/Desktop/Healthy-adults-V3V4/解析/alpha_div_with_evenness.tsv", check.names = FALSE)
+meta <- read.delim("~/Desktop/Healthy-adults-V3V4/metadata_16S_adult copy.txt", check.names = FALSE)
+alpha_div_merged <- alpha_div %>%
+   left_join(metadata, by = "SampleID")
+
+ alpha_div_merged <- alpha_div_merged %>%
+   mutate(
+     Shannon = as.numeric(Shannon),
+     Simpson = as.numeric(Simpson),
+     Chao1 = as.numeric(chao1),
+     Evenness = as.numeric(Evenness),
+     Group = factor(Group, levels = c("Baseline", "AOS-4-weeks"))
+   )
+
+ alpha_long <- alpha_div_merged %>%
+   pivot_longer(
+     cols = c(Shannon, Simpson, Chao1, Evenness),
+     names_to = "Metric",
+     values_to = "Value"
+   ) %>%
+   mutate(
+     Metric = factor(
+       Metric,
+       levels = c("Shannon", "Simpson", "Chao1", "Evenness"),
+       labels = c("Shannon Index", "Simpson’s Index", "Species Richness", "Species Evenness")
+     )
+   )
+
+p_alpha <- ggplot(alpha_long, aes(x = Group, y = Value, fill = Group)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7, width = 0.6) +
+   geom_jitter(aes(color = Group), width = 0.1, size = 1, alpha = 0.8) +
+   scale_fill_manual(values = c("Baseline" = "#999999", "AOS-4-weeks" = "#0072B2")) +
+   scale_color_manual(values = c("Baseline" = "#999999", "AOS-4-weeks" = "#0072B2")) +
+   stat_compare_means(
+     method = "wilcox.test",
+     paired = TRUE,
+     label = "p.signif",         # show significance stars
+     label.y.npc = 0.95,         # near top of each facet
+     size = 7,                   # ⭐ make label bigger
+     vjust = -1,                # vertically center text
+     hjust = -1                 # horizontally center text
+   ) +
+   facet_wrap(~Metric, scales = "free_y", nrow = 1) +
+   labs(
+     title = "",
+     x = "",
+     y = "Diversity Index"
+   ) +
+   theme_bw(base_size = 11) +
+   theme(
+     legend.position = "none",
+     strip.background = element_rect(fill = "white"),
+     strip.text = element_text(size = 10, face = "bold"),
+     panel.grid.major.x = element_blank(),
+     panel.grid.minor.x = element_blank(),
+     axis.text.x = element_text(angle = 0, vjust = 0.5)
+   )
+ 
+ print(p_alpha)
+
+ggsave("~/Desktop/alpha-div-4-metrics.png", plot = p_alpha, width = 10, height = 4, dpi = 600)

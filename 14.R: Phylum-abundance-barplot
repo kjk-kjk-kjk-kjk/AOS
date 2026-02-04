@@ -1,0 +1,84 @@
+Prepare:
+・phylum abundance tsv data, change id to Sample ID, delete the second row, edit the phylum name so it's easier to read (delete underscore, semicolon etc)
+
+# ------------------------------
+# Microbiome Phylum Barplot Script
+# ------------------------------
+
+# Load libraries
+library(tidyverse)
+library(viridis)  # for better color palette (optional)
+
+# ------------------------------
+# 1. Read your data
+# ------------------------------
+
+# Tab-delimited abundance table (rows = samples, columns = phyla)
+abund <- read.delim("abundance_table.csv", check.names = FALSE)
+
+# Tab-delimited metadata
+meta  <- read.delim("metadata.csv", check.names = FALSE)
+
+# ------------------------------
+# 2. Pivot abundance table to long format
+# ------------------------------
+abund_long <- abund %>%
+  pivot_longer(
+    cols = -SampleID,
+    names_to = "Phylum",
+    values_to = "Abundance"
+  )
+
+# ------------------------------
+# 3. Merge with metadata
+# ------------------------------
+merged <- abund_long %>%
+  left_join(meta, by = "SampleID")
+
+# ------------------------------
+# 4. Calculate relative abundance per sample
+# ------------------------------
+merged <- merged %>%
+  group_by(SampleID) %>%
+  mutate(RelativeAbundance = Abundance / sum(Abundance)) %>%
+  ungroup()
+
+# ------------------------------
+# 5. Calculate mean relative abundance per group
+# ------------------------------
+grouped <- merged %>%
+  group_by(Group, Phylum) %>%
+  summarise(mean_abundance = mean(RelativeAbundance, na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(mean_abundance > 0)  # optional: remove zero-abundance phyla
+
+# ------------------------------
+# 6. Set order of groups (Baseline first)
+# ------------------------------
+grouped$Group <- factor(grouped$Group, levels = c("Baseline", "AOS-4-weeks"))
+
+# ------------------------------
+# 7. Plot the barplot
+# ------------------------------
+p <- ggplot(grouped, aes(x = Group, y = mean_abundance, fill = Phylum)) +
+  geom_bar(stat = "identity", color = "black", width = 0.4) +  # slim bars + outlines
+  scale_fill_viridis_d(option = "turbo") +                     # good color palette
+  labs(
+    x = "Group",
+    y = "Mean relative abundance",
+    fill = "Phylum",
+    title = "Average Phylum Composition per Group"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "right"
+  )
+
+# Display the plot
+print(p)
+
+# ------------------------------
+# 8. Save the plot as PNG
+# ------------------------------
+ggsave("phylum_barplot.png", plot = p, width = 10, height = 6, dpi = 300)

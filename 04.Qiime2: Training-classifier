@@ -1,0 +1,31 @@
+download FeatureData[Sequence] silva-138-99-seqs.qza and FeatureData[Taxonomy] silva-138-99-tax.qza from https://docs.qiime2.org/2024.5/data-resources/ save in directory
+
+# Extract reads to V3-V4 region (replace with your actual primer sequences and amplicon length)
+# put forward primer in p-f-primer
+# put reverse primer in p-r-primer
+# this time the primer data are what provided by 生物技研
+qiime feature-classifier extract-reads \
+--verbose \
+--i-sequences silva-138-99-seqs.qza \
+--p-f-primer CCTACGGGNGGCWGCAG \
+--p-r-primer GACTACHVGGGTATCTAATCC \
+--p-trunc-len 0 \
+--o-reads silva-138-v3v4-seqs.qza
+
+# Train the classifier
+qiime feature-classifier fit-classifier-naive-bayes \
+  --i-reference-reads silva-138-v3v4-seqs.qza \
+  --i-reference-taxonomy silva-138-99-tax.qza \
+  --o-classifier silva-138-v3v4-tax.qza
+(Output: Uniform-Classifier, this is the classifier that will be used in classification)
+
+# Test the classifier
+qiime feature-classifier classify-sklearn \
+  --i-classifier silva-138-v3v4-tax.qza \
+  --i-reads silva-138-v3v4-seqs.qza \
+  --o-classification silva-138-99-tax.qza
+
+qiime metadata tabulate \
+  --m-input-file silva-138-99-tax.qza \
+  --o-visualization silva-138-99-tax.qzv
+#look at the confidence of the data and see if the trained taxonomy is reliable for classification
